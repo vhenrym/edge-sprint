@@ -4,6 +4,7 @@
 * Daniel Duarte - 562508
 * João Vitor Reis - 563115
 
+link do wokwi: https://wokwi.com/projects/442198227589678081
 
 Código:
 
@@ -103,4 +104,5 @@ void loop() {
     Serial.printf("Erro ao enviar: %d\n", httpResponseCode);
  }
 http.end();
+
 }
