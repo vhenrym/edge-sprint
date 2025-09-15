@@ -1,0 +1,106 @@
+* Victor Henry Melchior Camara  RM: 564222
+* Kathleen Lourenço -  561571
+* William Queiroz -  565032
+* Daniel Duarte - 562508
+* João Vitor Reis - 563115
+
+
+Código:
+
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include "DHT.h"
+
+// ----------- CONFIGURAÇÃO ------------
+const char* ssid = "Wokwi-GUEST"; // 
+const char* password = ""; 
+const char* THINGSPEAK_API_KEY = "7WX75CWWJGUCJEGW";
+const char* SERVER_URL = "https://api.thingspeak.com/update";
+
+#define DHTPIN 15
+#define DHTTYPE DHT22
+
+DHT dht(DHTPIN, DHTTYPE);
+
+unsigned long lastSend = 0;
+const unsigned long sendInterval = 15 * 1000; // 15 segundos
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+  connectWiFi();
+  dht.begin();
+}
+
+void connectWiFi() {
+  Serial.printf("Conectando à rede %s ...\n", ssid);
+  WiFi.begin(ssid, password);
+
+  int tries = 0;
+  while (WiFi.status() != WL_CONNECTED && tries < 30) {
+    delay(500);
+    Serial.print(".");
+    tries++;
+  }
+
+  Serial.println();
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("Conectado! IP: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("Falha ao conectar ao WiFi");
+  }
+}
+
+void loop() {
+  if (millis() - lastSend < sendInterval) return;
+  lastSend = millis();
+
+  // Reconectar WiFi se necessário
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi desconectado, tentando reconectar...");
+    connectWiFi();
+    if (WiFi.status() != WL_CONNECTED) return;
+  }
+
+  float temp = dht.readTemperature();
+  if (isnan(temp)) temp = random(36, 38); // fallback se sensor falhar
+
+  int batimentos = random(60, 170);
+  int spo2 = random(90, 100);
+  int passos = random(1000, 15000);
+  int chutes = random(0, 30);
+  float distancia = random(100, 1200) / 100.0;
+  float velocidade = random(30, 160) / 10.0;
+
+  String payload = "api_key=" + String(THINGSPEAK_API_KEY)
+                 + "&field1=" + String(temp)
+                 + "&field2=" + String(batimentos)
+                 + "&field3=" + String(spo2)
+                 + "&field4=" + String(passos)
+                 + "&field5=" + String(chutes)
+                 + "&field6=" + String(distancia)
+                 + "&field7=" + String(velocidade);
+
+  Serial.println("Enviando para ThingSpeak:");
+  Serial.println(payload);
+
+  HTTPClient http;
+  http.begin(SERVER_URL);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+  int httpResponseCode = http.POST(payload);
+
+  if (httpResponseCode > 0) {
+    String response = http.getString();
+    Serial.printf("Resposta ThingSpeak (%d): %s\n", httpResponseCode, response.c_str());
+    if (response.toInt() > 0) {
+      Serial.println("Dados registrados com sucesso no canal!");
+    } else {
+      Serial.println("Erro: dados não foram registrados corretamente.");
+    }
+  } else {
+    Serial.printf("Erro ao enviar: %d\n", httpResponseCode);
+ }
+http.end();
+}
